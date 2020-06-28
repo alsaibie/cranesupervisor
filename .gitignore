@@ -1,3 +1,5 @@
+build/
+arm_toolchain.cmake.in
 # Prerequisites
 *.d
 
