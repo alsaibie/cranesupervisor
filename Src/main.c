@@ -25,16 +25,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32f4xx_hal.h"
-
-#include <allocators.h>
-#include <rcl/rcl.h>
-#include <uxr/client/client.h>
-#include <ucdr/microcdr.h>
-
 #include "FreeRTOS.h"
 #include "task.h"
 
-#include <rmw_microxrcedds_c/config.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,6 +46,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
+UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart3_tx;
 DMA_HandleTypeDef hdma_usart3_rx;
@@ -76,6 +72,8 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -138,20 +136,23 @@ int main(void)
   MX_DMA_Init();
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
+  MX_I2C1_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-#ifdef MICRO_XRCEDDS_UDP
-  printf_uart = &huart3;
-#elif defined(MICRO_XRCEDDS_CUSTOM)
-  if (!strcmp("3",RMW_UXRCE_DEFAULT_SERIAL_DEVICE)){
-    printf_uart = &huart6;
-  }else{
+  #ifdef MICRO_XRCEDDS_UDP
     printf_uart = &huart3;
-    printf("Hi\n");
-    // while(1);
-  }
-#endif
-printf_uart = &huart3;
-    printf("Hi\n");
+  #elif defined(MICRO_XRCEDDS_CUSTOM)
+    if (!strcmp("3",RMW_UXRCE_DEFAULT_SERIAL_DEVICE)){
+      printf_uart = &huart6;
+    }else{
+      printf_uart = &huart3;
+      printf("Hi\n");
+      // while(1);
+    }
+  #endif
+  // TODO: use usb for ros and uart3 for debug
+  // printf_uart = &huart3;
+  
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -244,6 +245,73 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
 }
 
 /**
@@ -398,64 +466,23 @@ static void MX_GPIO_Init(void)
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_6, GPIO_PIN_SET);
-  bool availableNetwork = false;
+  /* Start the Crane Supervisor */
+  appMain();
 
-#ifdef MICRO_XRCEDDS_CUSTOM
-  availableNetwork = true;
-#elif defined(MICRO_XRCEDDS_UDP)
-  printf("Ethernet Initialization\r\n");
-
-	//Waiting for an IP
-  printf("Waiting for IP\r\n");
-  int retries = 0;
-	while(gnetif.ip_addr.addr == 0 && retries < 10){
-    osDelay(500);  
-    retries++;
-  };
-
-  availableNetwork = (gnetif.ip_addr.addr != 0);
-  if (availableNetwork){
-    printf("IP: %s\r\n",ip4addr_ntoa(&gnetif.ip_addr));
-  }else{
-    printf("Impossible to retrieve an IP\n");
-  }
-#endif
-
-  // Launch app thread when IP configured
-  rcl_allocator_t freeRTOS_allocator = rcutils_get_zero_initialized_allocator();
-  freeRTOS_allocator.allocate = __freertos_allocate;
-  freeRTOS_allocator.deallocate = __freertos_deallocate;
-  freeRTOS_allocator.reallocate = __freertos_reallocate;
-  freeRTOS_allocator.zero_allocate = __freertos_zero_allocate;
-
-  if (!rcutils_set_default_allocator(&freeRTOS_allocator)) {
-      printf("Error on default allocators (line %d)\n",__LINE__); 
-  }
-
-  osThreadAttr_t attributes;
-  memset(&attributes, 0x0, sizeof(osThreadAttr_t));
-  attributes.name = "microROS_app";
-  attributes.stack_size = 5*3000;
-  attributes.priority = (osPriority_t) osPriorityNormal1;
-  printf("Before app\n");
-  osThreadNew(appMain, NULL, &attributes); 
-  printf("After app\n");
-  osDelay(500);
-  char ptrTaskList[500];
-  vTaskList(ptrTaskList);
-  printf("**********************************\n");
-  printf("Task  State   Prio    Stack    Num\n"); 
-  printf("**********************************\n");
-  printf(ptrTaskList);
-  printf("**********************************\n");
-
+  // /* Print the RTOS Task List */
+  // char ptrTaskList[500];
+  // vTaskList(ptrTaskList);
+  // printf("**********************************\n");
+  // printf("Task  State   Prio    Stack    Num\n"); 
+  // printf("**********************************\n");
+  // printf(ptrTaskList);
+  // printf("**********************************\n");
+  
   TaskHandle_t xHandle;
-  xHandle = xTaskGetHandle("microROS_app");
+  xHandle = xTaskGetHandle("ros_manager");
 
   while (1){
-    if (eTaskGetState(xHandle) != eSuspended && availableNetwork){
+    if (eTaskGetState(xHandle) != eSuspended){
       HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
       osDelay(100);
       HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_SET);
@@ -472,7 +499,6 @@ void StartDefaultTask(void *argument)
     }
   }
   
-
   /* USER CODE END 5 */ 
 }
 

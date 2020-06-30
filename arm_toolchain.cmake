@@ -34,16 +34,11 @@ set(CMAKE_CXX_FLAGS_INIT "-std=c++14 ${ARCH_CPU_FLAGS} ${ARCH_OPT_FLAGS} " CACHE
 
 
 include_directories(SYSTEM 
-	/home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/FreeRTOS-Plus-POSIX/include
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/include
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/include/private
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/include/FreeRTOS_POSIX
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/include/FreeRTOS_POSIX/sys
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/src/hal/interface
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/src/modules/interface
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/src/utils/interface
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/src/config
- /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/src/drivers/interface
+	/home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/lib//FreeRTOS-Plus-POSIX/include
+ /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/lib//include
+ /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/lib//include/private
+ /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/lib//include/FreeRTOS_POSIX
+ /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/lib//include/FreeRTOS_POSIX/sys
  /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/Inc
  /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/Drivers/STM32F4xx_HAL_Driver/Inc
  /home/alsaibie/uros_cranesupervisor_ws/firmware/cranesupervisor/Drivers/CMSIS/Device/ST/STM32F4xx/Include

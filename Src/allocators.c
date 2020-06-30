@@ -1,5 +1,9 @@
 #include <allocators.h>
 
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
+
 int absoluteUsedMemory = 0;
 int usedMemory = 0;
 
@@ -43,3 +47,6 @@ void * __freertos_zero_allocate(size_t number_of_elements, size_t size_of_elemen
   usedMemory += number_of_elements*size_of_element;
   return pvPortCalloc(number_of_elements,size_of_element);
 }
+// #ifdef __cplusplus
+// }
+// #endif

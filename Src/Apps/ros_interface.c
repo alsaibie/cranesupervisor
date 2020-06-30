@@ -1,17 +1,23 @@
-#include <allocators.h>
+#include "allocators.h"
+#include "cmsis_os.h"
+#include "main.h"
 
 #include <rcl/rcl.h>
 #include <rcl_action/rcl_action.h>
 #include <rcl/error_handling.h>
+#include <uxr/client/client.h>
+#include <ucdr/microcdr.h>
 #include "rosidl_generator_c/string_functions.h"
 #include <std_msgs/msg/header.h>
 
 #include <rmw_uros/options.h>
+#include <rmw_microxrcedds_c/config.h>
 
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
 
+#include "stm32f4xx_hal.h"
 #define STRING_BUFFER_LEN 100
 
 // FreeRTOS thread for triggering a publication guard condition
@@ -25,7 +31,7 @@ void * trigger_guard_condition(void *args){
 }
 
 // App main function
-void appMain(void *argument)
+void rosTask(void *argument)
 {
   //Init RCL options
 
@@ -154,4 +160,27 @@ void appMain(void *argument)
     
     usleep(10000);
   } while (true);
+}
+
+
+void start_ros_interface(void){
+  bool availableNetwork = true;
+  // Launch app thread when IP configured
+  rcl_allocator_t freeRTOS_allocator = rcutils_get_zero_initialized_allocator();
+  freeRTOS_allocator.allocate = __freertos_allocate;
+  freeRTOS_allocator.deallocate = __freertos_deallocate;
+  freeRTOS_allocator.reallocate = __freertos_reallocate;
+  freeRTOS_allocator.zero_allocate = __freertos_zero_allocate;
+
+  if (!rcutils_set_default_allocator(&freeRTOS_allocator)) {
+      printf("Error on default allocators (line %d)\n",__LINE__); 
+  }
+
+  osThreadAttr_t attributes;
+  memset(&attributes, 0x0, sizeof(osThreadAttr_t));
+  attributes.name = "ros_interface";
+  attributes.stack_size = 4*3000;
+  attributes.priority = (osPriority_t) osPriorityNormal1;
+  osThreadNew(rosTask, NULL, &attributes); 
+
 }
