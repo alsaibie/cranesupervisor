@@ -1,24 +1,44 @@
 /*
- * Actuator_Manager.cpp
- *
- *  Created on: Jun 4, 2020
- *      Author: Ali AlSaibie
- *      Email:  ali.a@ku.edu.kw
+ * MIT License
+ * 
+ * Copyright (c) 2020 Ali AlSaibie
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * 
+ * 
+ * File: actuator_manager.cpp
+ * Project: Crane Supervisor
+ * Author: Ali AlSaibie (ali.alsaibie@ku.edu.kw)
+ * -----
+ * Modified By: Ali AlSaibie (ali.alsaibie@ku.edu.kw>)
  */
 #include "board_configuration.hpp"
-#include "app_main.hpp"
-#include "MTopics/actuator_commands.hpp"
-#include "MTopics/actuator_status.hpp"
-#include "Actuators/ODriveInterface.hpp"
-
-#include "task.h"
+#include "app_starter.hpp"
+#include "MachineRFX.hpp"
+#include "topics/actuator_commands.hpp"
+#include "topics/actuator_status.hpp"
+#include "actuators/ODrive/ODriveInterface.hpp"
 
 #include "math.h"
 
-using namespace MRTOS;
-using namespace MTopics;
-using namespace Actuators;
-using namespace ODrive;
+using namespace MachineRFX;
+
 
 extern ODrive::ODriveInterface ODrive0;
 #define odrive0_huart huart2
@@ -40,13 +60,13 @@ enum Odrive0Axes {
   BRIDGE = 1
 };
 
-class ActuatorManager : public MThread {
+class ActuatorManager : public MRXThread {
  public:
   ActuatorManager()
       :
-      MThread("Actuator Manager ", 512, actuator_m_priority, 30),
-      actuator_status_pub(gActuatorStatusMQHandle),
-      actuator_cmd_sub(gActuatorCommandsMQHandle,
+      MRXThread("actuator_manager", 256, MRXPriority_n::Realtime, 30),
+      actuator_status_pub(gActuatorStatusMTHandle),
+      actuator_cmd_sub(gActuatorCommandsMTHandle,
                        std::bind(&ActuatorManager::on_actuator_cmd_read, this, std::placeholders::_1)),
       odrive0config { trAxisMinPos, trAxisMaxPos, trAxisMaxVel, trAxisGearRatio, trAxisTorqueK,
       trAxisMaxAcc, trAxisMaxCurrent, trAxisSoftLimitTolerance },
@@ -63,10 +83,10 @@ class ActuatorManager : public MThread {
 
     
 
-    odrive0.start(TROLLEY);
+    // odrive0.start(TROLLEY);
 
-    AxisStates_t trolleyAxisState = odrive0.getAxisState(TROLLEY);
-    uint32_t count = 0;
+    // AxisStates_t trolleyAxisState = odrive0.getAxisState(TROLLEY);
+    // uint32_t count = 0;
 
     /* */
 
@@ -122,6 +142,7 @@ class ActuatorManager : public MThread {
 //       float pos_error = ActuatorStatusMsg.trolleyAxis.position - ptest;
       //TODO: send actuator motion state
       thread_lap();
+      toggleLD2();
     }
   }
 
@@ -132,11 +153,11 @@ class ActuatorManager : public MThread {
   }
 
   /* Pubs */
-  MQueuePublisher<ActuatorStatus_msg_t> actuator_status_pub;
+  MRXTopicPublisher<ActuatorStatus_msg_t> actuator_status_pub;
   ActuatorStatus_msg_t ActuatorStatusMsg;
 
   /* Subs */
-  MQueueSubscriber<ActuatorCommands_msg_t> actuator_cmd_sub;
+  MRXTopicSubscriber<ActuatorCommands_msg_t> actuator_cmd_sub;
   ActuatorCommands_msg_t actuatorCmdMsg;
   ODrive::LinearAxis_Config_t odrive0config;
   ODrive::ODriveInterface odrive0;

@@ -8,18 +8,16 @@
 
 #ifndef SENSOR_STATUS_HPP_
 #define SENSOR_STATUS_HPP_
-#include "MRTOS/MQueue.hpp"
+#include "MRXTopic.hpp"
 
-namespace MTopics {
+namespace MachineRFX {
 
 typedef struct : public _msgCore {
   float Q_SLPM { 0 };
   float P_mmH2O { 0 };
 } SensorStatus_msg_t;
 
-}  // namespace MTopics
-
-extern MRTOS::MQueueHandle_t gSensorStatusMQHandle;
-
+inline MRXTopicHandle_t  gSensorStatusMTHandle{"Sensor Status"};
+}  // namespace MachineRX
 
 #endif /* SENSOR_STATUS_HPP_ */

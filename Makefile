@@ -94,11 +94,12 @@ Src/FreeRTOS-openocd.c \
 # Src/Apps/ros_interface.c \
 
 CPP_SOURCES = \
-Src/Apps/app_main.cpp \
-Src/Apps/actuator_manager.cpp \
+$(UROS_APP_FOLDER)/app_starter.cpp \
+$(UROS_APP_FOLDER)/actuator_manager.cpp \
+$(UROS_APP_FOLDER)/actuators/ODrive/ODriveInterface.cpp \
+$(UROS_APP_FOLDER)/ros_manager.cpp \
 Src/Device/UART.cpp \
-Src/Actuators/ODriveInterface.cpp \
-Src/Apps/ros_manager.cpp \
+Src/cpp_allocators.cpp
 #TODO: replace wildcard for all Src then exclude, example:
 # $(wildcard Device/*.c) $(wildcard Device/*.cpp) \
 # $(wildcard Apps/*.c) $(wildcard Apps/*.cpp) \
@@ -128,13 +129,13 @@ CROSS_COMPILE = $(TOPFOLDER)/toolchain/bin/$(CROSS_COMPILE_NAME_PREFIX)
 
 ifdef GCC_PATH
 CC = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)gcc
-CPP = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)gcc
+CPP = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)g++
 AS = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)gcc -x assembler-with-cpp
 CP = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)objcopy
 SZ = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)size
 else
 CC = $(CROSS_COMPILE)gcc
-CPP = $(CROSS_COMPILE)gcc
+CPP = $(CROSS_COMPILE)g++
 AS = $(CROSS_COMPILE)gcc -x assembler-with-cpp
 CP = $(CROSS_COMPILE)objcopy
 SZ = $(CROSS_COMPILE)size
@@ -188,6 +189,7 @@ C_INCLUDES =  \
 -Ilib/include \
 -Ilib/include/private \
 -Ilib/include/FreeRTOS_POSIX \
+-Ilib/MachineRX/machinerfx/include \
 -I$(UROS_APP_FOLDER)
 
 MICROROS_INCLUDES += $(shell find $(UROS_DIR)/install -name 'include' | sed -E "s/(.*)/-I\1/")

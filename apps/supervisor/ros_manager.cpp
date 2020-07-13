@@ -1,10 +1,9 @@
 
-// #include "cmsis_os.h"
 #include "main.h"
-#include "app_main.hpp"
-#include "task.h"
+#include "MachineRFX.hpp"
+#include "app_starter.hpp"
 
-#include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal.h" //TODO: why needed here?
 
 extern "C" {
 #include <rcl/rcl.h>
@@ -17,7 +16,7 @@ extern "C" {
 #include "rosidl_generator_c/string_functions.h"
 #include <stdio.h>
 #include <unistd.h>
-#include <pthread.h>
+#include <pthread.h> //TODO: replace pthread with machinerx
 #include "allocators.h"
 }
 
@@ -25,8 +24,8 @@ extern "C" {
 
 #define STRING_BUFFER_LEN 100
 
-using namespace MRTOS;
-using namespace MTopics;
+using namespace MachineRFX;
+
 
 // FreeRTOS thread for triggering a publication guard condition
 void *trigger_guard_condition(void *args)
@@ -40,11 +39,11 @@ void *trigger_guard_condition(void *args)
   }
 }
 
-class ROSManager : public MThread
+class ROSManager : public MRXThread
 {
 public:
   ROSManager()
-      : MThread("ros_manager", 3000, 25, 10)
+      : MRXThread("ros_manager", 2500, MRXPriority_n::Normal, 10)
   {
   }
 
@@ -193,6 +192,7 @@ protected:
 
 void start_ros_manager(void)
 {
+  //TODO: take this back to main.c, it is platform dependent. 
   // Launch app thread when IP configured
   rcl_allocator_t freeRTOS_allocator = rcutils_get_zero_initialized_allocator();
   freeRTOS_allocator.allocate = __freertos_allocate;

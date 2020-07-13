@@ -6,7 +6,7 @@
  *      Email:  ali.a@ku.edu.kw
  */
 
-#include "Actuators/ODriveInterface.hpp"
+#include "actuators/ODrive/ODriveInterface.hpp"
 #include "Device/UART.hpp"
 #include <cstdio>
 
