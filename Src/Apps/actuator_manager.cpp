@@ -59,10 +59,16 @@ class ActuatorManager : public MThread {
  protected:
   virtual void run() {
 
-//     odrive0.start(TROLLEY);
+    /* Check if connected to odrive0 */
 
-//     AxisStates_t trolleyAxisState = odrive0.getAxisState(TROLLEY);
-//     uint32_t count = 0;
+    
+
+    odrive0.start(TROLLEY);
+
+    AxisStates_t trolleyAxisState = odrive0.getAxisState(TROLLEY);
+    uint32_t count = 0;
+
+    /* */
 
 //     if (trolleyAxisState != AxisStates_t::Closed_Loop_Control) {
 //       odrive0.sendAxisStateCommand(TROLLEY, AxisStates_t::Closed_Loop_Control, true);

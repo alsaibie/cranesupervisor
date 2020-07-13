@@ -21,7 +21,8 @@ enum class ThreadStatus_t {
   Thread_Sleep = 0x04
 };
 
-class MThread {
+class MThread 
+{
  public:
   inline uint32_t start() {
     // TODO: Add check guards

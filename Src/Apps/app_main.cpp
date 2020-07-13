@@ -32,6 +32,7 @@ MRTOS::MQueueHandle_t gUserInputOffboardMQHandle{NULL, "User Input Offboard", 1}
 void appMain(void)
 {
 
+
     /* Start Threads */
     /* Tasks with static allocation first */
     start_ros_manager();

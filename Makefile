@@ -128,13 +128,13 @@ CROSS_COMPILE = $(TOPFOLDER)/toolchain/bin/$(CROSS_COMPILE_NAME_PREFIX)
 
 ifdef GCC_PATH
 CC = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)gcc
-CPP = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)g++
+CPP = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)gcc
 AS = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)gcc -x assembler-with-cpp
 CP = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)objcopy
 SZ = $(GCC_PATH)/$(CROSS_COMPILE_NAME_PREFIX)size
 else
 CC = $(CROSS_COMPILE)gcc
-CPP = $(CROSS_COMPILE)g++
+CPP = $(CROSS_COMPILE)gcc
 AS = $(CROSS_COMPILE)gcc -x assembler-with-cpp
 CP = $(CROSS_COMPILE)objcopy
 SZ = $(CROSS_COMPILE)size
@@ -179,7 +179,6 @@ C_INCLUDES =  \
 -IDrivers/STM32F4xx_HAL_Driver/Inc/Legacy \
 -IDrivers/CMSIS/Device/ST/STM32F4xx/Include \
 -IDrivers/CMSIS/Include \
--IDrivers/CMSIS/Include \
 -IMiddlewares/Third_Party/FreeRTOS/Source/include \
 -IMiddlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F \
 -IMiddlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 \
@@ -188,14 +187,15 @@ C_INCLUDES =  \
 -Ilib/FreeRTOS-Plus-POSIX/include/portable \
 -Ilib/include \
 -Ilib/include/private \
+-Ilib/include/FreeRTOS_POSIX \
 -I$(UROS_APP_FOLDER)
 
 MICROROS_INCLUDES += $(shell find $(UROS_DIR)/install -name 'include' | sed -E "s/(.*)/-I\1/")
 MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib/include
-MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib//include/FreeRTOS_POSIX
-MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib//include/private
-MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib//FreeRTOS-Plus-POSIX/include
-MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib//FreeRTOS-Plus-POSIX/include/portable
+MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib/include/FreeRTOS_POSIX
+MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib/include/private
+MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib/FreeRTOS-Plus-POSIX/include
+MICROROS_INCLUDES += -I$(EXTENSIONS_DIR)/lib/FreeRTOS-Plus-POSIX/include/portable
 C_INCLUDES += $(MICROROS_INCLUDES)
 
 COLCON_INCLUDES += $(EXTENSIONS_DIR)/lib//FreeRTOS-Plus-POSIX/include 
