@@ -1,0 +1,3 @@
+[submodule "lib/MachineRX"]
+	path = lib/MachineRX
+	url = https://github.com/alsaibie/MachineRX.git
