@@ -1,217 +1,98 @@
 
-#include "main.h"
+#include <cstdio>
+
 #include "MachineRFX.hpp"
 #include "app_starter.hpp"
-
-#include "stm32f4xx_hal.h" //TODO: why needed here?
+#include "main.h"
+#include "uROS/uROSNode.hpp"
+#include "uROS/uROSTopic.hpp"
 
 extern "C" {
+#include <rcl/error_handling.h>
 #include <rcl/rcl.h>
 #include <rcl_action/rcl_action.h>
-#include <rcl/error_handling.h>
-#include <uxr/client/client.h>
-#include <ucdr/microcdr.h>
-#include <rmw_uros/options.h>
 #include <rmw_microxrcedds_c/config.h>
-#include "rosidl_generator_c/string_functions.h"
-#include <stdio.h>
+#include <rmw_uros/options.h>
+#include <ucdr/microcdr.h>
 #include <unistd.h>
-#include <pthread.h> //TODO: replace pthread with machinerx
+#include <uxr/client/client.h>
+
 #include "allocators.h"
+#include "rosidl_generator_c/string_functions.h"
 }
 
 #include <std_msgs/msg/header.h>
+
+#include "cranesupervisor/msg/num.h"
 
 #define STRING_BUFFER_LEN 100
 
 using namespace MachineRFX;
 
+class ROSManager : public MRXThread {
+   public:
+    ROSManager()
+        : MRXThread("ros_manager", 3000, MRXPriority_n::Normal, 1000),
+          ros_node("crane_supervisor", 0x10),
+          topic_num_pub("/CraneSupervisor/Num", ros_node.node_handle, ROSIDL_GET_MSG_TYPE_SUPPORT(cranesupervisor, msg, Num)) {
+    }
 
-// FreeRTOS thread for triggering a publication guard condition
-void *trigger_guard_condition(void *args)
-{
-  rcl_guard_condition_t *guard_condition = (rcl_guard_condition_t *)args;
+    virtual ~ROSManager() {
+    }
 
-  while (true)
-  {
-    rcl_trigger_guard_condition(guard_condition);
-    vTaskDelay(20);
-  }
-}
+   protected:
+    virtual void run() {
+        rcl_ret_t rc;
+        //TODO: add guards on rc and perhaps a recycle goto statement. Maybe an assert macro?
+        while (1) {
+            rc = ros_node.connect();
+            rc = topic_num_pub.initialize();
+            
+            numMsg.num = 0;
+            bool reconnect = false;
 
-class ROSManager : public MRXThread
-{
-public:
-  ROSManager()
-      : MRXThread("ros_manager", 2500, MRXPriority_n::Normal, 10)
-  {
-  }
-
-  virtual ~ROSManager()
-  {
-  }
-
-protected:
-  virtual void run()
-  {
-    //Init RCL options
-
-    rcl_init_options_t options = rcl_get_zero_initialized_init_options();
-    rcl_init_options_init(&options, rcl_get_default_allocator());
-
-    // Init RCL context
-    rcl_context_t context = rcl_get_zero_initialized_context();
-    rcl_init(0, NULL, &options, &context);
-
-    // Create a node
-    rcl_node_options_t node_ops = rcl_node_get_default_options();
-    rcl_node_t node = rcl_get_zero_initialized_node();
-    rcl_node_init(&node, "crane_supervisor", "", &context, &node_ops);
-
-    // Create a reliable ping publisher
-    rcl_publisher_options_t ping_publisher_ops = rcl_publisher_get_default_options();
-    rcl_publisher_t ping_publisher = rcl_get_zero_initialized_publisher();
-    rcl_publisher_init(&ping_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Header), "/microROS/ping", &ping_publisher_ops);
-
-    // Create a best effort pong publisher
-    rcl_publisher_options_t pong_publisher_ops = rcl_publisher_get_default_options();
-    pong_publisher_ops.qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
-    rcl_publisher_t pong_publisher = rcl_get_zero_initialized_publisher();
-    rcl_publisher_init(&pong_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Header), "/microROS/pong", &pong_publisher_ops);
-
-    // Create a best effort pong subscriber
-    rcl_subscription_options_t pong_subscription_ops = rcl_subscription_get_default_options();
-    pong_subscription_ops.qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
-    rcl_subscription_t pong_subscription = rcl_get_zero_initialized_subscription();
-    rcl_subscription_init(&pong_subscription, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Header), "/microROS/pong", &pong_subscription_ops);
-
-    // Create a best effort ping subscriber
-    rcl_subscription_options_t ping_subscription_ops = rcl_subscription_get_default_options();
-    ping_subscription_ops.qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
-    rcl_subscription_t ping_subscription = rcl_get_zero_initialized_subscription();
-    rcl_subscription_init(&ping_subscription, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Header), "/microROS/ping", &ping_subscription_ops);
-
-    // Create a guard condition
-    rcl_guard_condition_t guard_condition = rcl_get_zero_initialized_guard_condition();
-    rcl_guard_condition_options_t guard_condition_options = rcl_guard_condition_get_default_options();
-    rcl_guard_condition_init(&guard_condition, &context, guard_condition_options);
-
-    // Create a thread that triggers the guard condition
-    pthread_t guard_condition_thread;
-    pthread_create(&guard_condition_thread, NULL, trigger_guard_condition, &guard_condition);
-
-    // Create a wait set
-    rcl_wait_set_t wait_set = rcl_get_zero_initialized_wait_set();
-    rcl_wait_set_init(&wait_set, 2, 1, 0, 0, 0, 0, &context, rcl_get_default_allocator());
-
-    // Create and allocate the pingpong publication message
-    std_msgs__msg__Header msg;
-    char msg_buffer[STRING_BUFFER_LEN];
-    msg.frame_id.data = msg_buffer;
-    msg.frame_id.capacity = STRING_BUFFER_LEN;
-
-    // Create and allocate the pingpong subscription message
-    std_msgs__msg__Header rcv_msg;
-    char rcv_buffer[STRING_BUFFER_LEN];
-    rcv_msg.frame_id.data = rcv_buffer;
-    rcv_msg.frame_id.capacity = STRING_BUFFER_LEN;
-
-    // Set device id and sequence number;
-    int device_id = rand();
-    int seq_no;
-
-    int pong_count = 0;
-    struct timespec ts;
-    rcl_ret_t rc;
-
-    while(1)
-    {
-      // Clear and set the waitset
-      rcl_wait_set_clear(&wait_set);
-
-      size_t index_pong_subscription;
-      rcl_wait_set_add_subscription(&wait_set, &pong_subscription, &index_pong_subscription);
-
-      size_t index_ping_subscription;
-      rcl_wait_set_add_subscription(&wait_set, &ping_subscription, &index_ping_subscription);
-
-      size_t index_guardcondition;
-      rcl_wait_set_add_guard_condition(&wait_set, &guard_condition, &index_guardcondition);
-
-      // Run session for 100 ms
-      rcl_wait(&wait_set, RCL_MS_TO_NS(100));
-
-      // Check if it is time to send a ping
-      if (wait_set.guard_conditions[index_guardcondition])
-      {
-        // Generate a new random sequence number
-        seq_no = rand();
-        sprintf(msg.frame_id.data, "%d_%d", seq_no, device_id);
-        msg.frame_id.size = strlen(msg.frame_id.data);
-
-        // Fill the message timestamp
-        clock_gettime(CLOCK_REALTIME, &ts);
-        msg.stamp.sec = ts.tv_sec;
-        msg.stamp.nanosec = ts.tv_nsec;
-
-        // Reset the pong count and publish the ping message
-        pong_count = 0;
-        rcl_publish(&ping_publisher, (const void *)&msg, NULL);
-        // printf("Ping send seq 0x%x\n", seq_no);
-      }
-
-      // Check if some pong message is received
-      if (wait_set.subscriptions[index_pong_subscription])
-      {
-        rc = rcl_take(wait_set.subscriptions[index_pong_subscription], &rcv_msg, NULL, NULL);
-
-        if (rc == RCL_RET_OK && strcmp(msg.frame_id.data, rcv_msg.frame_id.data) == 0)
-        {
-          pong_count++;
-          // printf("Pong for seq 0x%x (%d)\n", seq_no, pong_count);
+            while (!reconnect) {
+                numMsg.num++;
+                topic_num_pub.publish(numMsg);
+                thread_lap();
+            }
         }
-      }
+    }
 
-      // Check if some ping message is received and pong it
-      if (wait_set.subscriptions[index_ping_subscription])
-      {
-        rc = rcl_take(wait_set.subscriptions[index_ping_subscription], &rcv_msg, NULL, NULL);
+   private:
+    /* internal receives */
+    void on_int_topic_receive();
+    void on_int_action_response_receive();
+    void on_int_service_response_receive();
 
-        // Dont pong my own pings
-        if (rc == RCL_RET_OK && strcmp(msg.frame_id.data, rcv_msg.frame_id.data) != 0)
-        {
-          // printf("Ping received with seq 0x%x (%d). Answering.\n", seq_no);
-          rcl_publish(&pong_publisher, (const void *)&rcv_msg, NULL);
-        }
-      }
+    /* external receives */
+    void on_ext_set_parameters_receive();
+    void on_ext_action_receive();
+    void on_ext_service_receive();
 
-      thread_lap();
-    };
-  }
+
+    /* Node */
+    uROSNode ros_node;
+
+    /* Pubs */
+    uROSTopicPublisher<cranesupervisor__msg__Num> topic_num_pub;
+    cranesupervisor__msg__Num numMsg;
+
+    /* Subs */
 };
 
-void start_ros_manager(void)
-{
-  //TODO: take this back to main.c, it is platform dependent. 
-  // Launch app thread when IP configured
-  rcl_allocator_t freeRTOS_allocator = rcutils_get_zero_initialized_allocator();
-  freeRTOS_allocator.allocate = __freertos_allocate;
-  freeRTOS_allocator.deallocate = __freertos_deallocate;
-  freeRTOS_allocator.reallocate = __freertos_reallocate;
-  freeRTOS_allocator.zero_allocate = __freertos_zero_allocate;
+void start_ros_manager(void) {
+    //TODO: take this back to main.c, it is platform dependent.
+    rcl_allocator_t freeRTOS_allocator = rcutils_get_zero_initialized_allocator();
+    freeRTOS_allocator.allocate = __freertos_allocate;
+    freeRTOS_allocator.deallocate = __freertos_deallocate;
+    freeRTOS_allocator.reallocate = __freertos_reallocate;
+    freeRTOS_allocator.zero_allocate = __freertos_zero_allocate;
 
-  if (!rcutils_set_default_allocator(&freeRTOS_allocator))
-  {
-    printf("Error on default allocators (line %d)\n", __LINE__);
-  }
+    if (!rcutils_set_default_allocator(&freeRTOS_allocator)) {
+        printf("Error on default allocators (line %d)\n", __LINE__);
+    }
 
-  // osThreadAttr_t attributes;
-  // memset(&attributes, 0x0, sizeof(osThreadAttr_t));
-  // attributes.name = "ros_interface";
-  // attributes.stack_size = 5 * 3000;
-  // attributes.priority = (osPriority_t)osPriorityNormal1;
-  // osThreadNew(rosTask, NULL, &attributes);
-
-  ROSManager *ptr = new ROSManager();
-  ptr->start();
+    ROSManager *ptr = new ROSManager();
+    ptr->start();
 }

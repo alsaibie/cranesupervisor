@@ -20,7 +20,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
 #include "cmsis_os.h"
 #include "stdio.h"
 /* Private includes ----------------------------------------------------------*/
@@ -442,27 +441,17 @@ static void MX_GPIO_Init(void) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument) {
     /* USER CODE BEGIN 5 */
-    /* Start the Crane Supervisor */
-
-    // /* Print the RTOS Task List */
+    /* Print the RTOS Task List */
     char ptrTaskList[500];
-    vTaskList(ptrTaskList);
-    printf("**********************************\n");
-    printf("Task  State   Prio    Stack    Num\n");
-    printf("**********************************\n");
-    printf(ptrTaskList);
-    printf("**********************************\n");
-
-    // TaskHandle_t xHandle;
-    // xHandle = xTaskGetHandle("ros_manager");
-
     while (1) {
         vTaskList(ptrTaskList);
+        printf("**********************************\n");
+        printf("Task  State   Prio    Stack    Num\n");
+        printf("**********************************\n");
         printf(ptrTaskList);
         printf("**********************************\n");
         vTaskDelay(1000);
     }
-
     /* USER CODE END 5 */
 }
 

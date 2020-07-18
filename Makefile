@@ -39,7 +39,7 @@ EXTENSIONS_DIR = $(shell pwd)
 TOPFOLDER = $(EXTENSIONS_DIR)/../..
 UROS_DIR = $(TOPFOLDER)/firmware/mcu_ws
 BUILD_DIR = $(EXTENSIONS_DIR)/build
-
+UROS_APP_FOLDER = $(EXTENSIONS_DIR)/apps/supervisor
 ######################################
 # source
 ######################################
@@ -220,7 +220,6 @@ ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2 
 endif
 
-
 # Generate dependency information
 CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
 
@@ -270,6 +269,34 @@ colcon_compile: arm_toolchain
 		-DCMAKE_VERBOSE_MAKEFILE=ON; \
 
 libmicroros: colcon_compile
+	mkdir -p $(UROS_DIR)/libmicroros; cd $(UROS_DIR)/libmicroros; \
+	for file in $$(find $(UROS_DIR)/install/ -name '*.a'); do \
+		folder=$$(echo $$file | sed -E "s/(.+)\/(.+).a/\2/"); \
+		mkdir -p $$folder; cd $$folder; ar x $$file; \
+		for f in *; do \
+			mv $$f ../$$folder-$$f; \
+		done; \
+		cd ..; rm -rf $$folder; \
+	done ; \
+	ar rc libmicroros.a *.obj; mkdir -p $(BUILD_DIR); cp libmicroros.a $(BUILD_DIR); ranlib $(BUILD_DIR)/libmicroros.a; \
+	cd ..; rm -rf libmicroros;
+
+colcon_compile_app:
+	cd $(UROS_DIR); \
+	colcon build \
+		--packages-select cranesupervisor \
+		--packages-ignore-regex=.*_cpp \
+		--metas $(UROS_DIR)/colcon.meta $(UROS_APP_FOLDER)/app-colcon.meta \
+		--cmake-args \
+		-DCMAKE_POSITION_INDEPENDENT_CODE=OFF \
+		-DTHIRDPARTY=ON \
+		-DBUILD_SHARED_LIBS=ON \
+		-DBUILD_TESTING=OFF \
+		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+		-DCMAKE_TOOLCHAIN_FILE=$(EXTENSIONS_DIR)/arm_toolchain.cmake \
+		-DCMAKE_VERBOSE_MAKEFILE=ON;
+
+libmicroros_app: colcon_compile_app
 	mkdir -p $(UROS_DIR)/libmicroros; cd $(UROS_DIR)/libmicroros; \
 	for file in $$(find $(UROS_DIR)/install/ -name '*.a'); do \
 		folder=$$(echo $$file | sed -E "s/(.+)\/(.+).a/\2/"); \
