@@ -33,12 +33,14 @@
 #define _UROSTOPIC_HPP_
 
 extern "C" {
-#include <rcl/error_handling.h>
+// #include <rcl/error_handling.h>
 #include <rcl/rcl.h>
-#include <rcl_action/rcl_action.h>
+// #include <rcl_action/rcl_action.h>
 }
 
-class uROSTopicBase_ {
+#include <functional>
+
+class uROSPublisherBase_ {
    public:
     uint32_t initialize() {
         uint32_t rc = 0;
@@ -47,13 +49,13 @@ class uROSTopicBase_ {
     }
 
    protected:
-    uROSTopicBase_(const char *name_, const rcl_node_t &nh_, const rosidl_message_type_support_t *type_support_) : node_handle(nh_), type_support(type_support_) {
+    uROSPublisherBase_(const char *name_, const rcl_node_t &nh_, const rosidl_message_type_support_t *type_support_) : node_handle(nh_), type_support(type_support_) {
         topic_name = name_;
         publisher_options = rcl_publisher_get_default_options();
         publisher_options.qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
     }
 
-    virtual ~uROSTopicBase_() {}
+    virtual ~uROSPublisherBase_() {}
 
     const rcl_node_t &node_handle;
 
@@ -66,9 +68,9 @@ class uROSTopicBase_ {
 };
 
 template <typename ROSTopicMsgT>
-class uROSTopicPublisher : public uROSTopicBase_ {
+class uROSPublisher : public uROSPublisherBase_ {
    public:
-    uROSTopicPublisher(const char *name_, const rcl_node_t &nh_, const rosidl_message_type_support_t *type_support_) : uROSTopicBase_(name_, nh_, type_support_) {
+    uROSPublisher(const char *name_, const rcl_node_t &nh_, const rosidl_message_type_support_t *type_support_) : uROSPublisherBase_(name_, nh_, type_support_) {
     }
 
     uint32_t publish(ROSTopicMsgT &msg) {
@@ -76,6 +78,57 @@ class uROSTopicPublisher : public uROSTopicBase_ {
         rc = rcl_publish(&publisher_handle, (const void *)&msg, NULL);
         return rc;
     }
+};
+
+class uROSSubscriberBase_ {
+   public:
+    uint32_t initialize() {
+        uint32_t rc = 0;
+        rc = rcl_subscription_init(&subscriber_handle, &node_handle, type_support, topic_name, &subscriber_options);
+        return rc;
+    }
+
+   protected:
+    uROSSubscriberBase_(const char *name_, const rcl_node_t &nh_, const rosidl_message_type_support_t *type_support_) : node_handle(nh_), type_support(type_support_) {
+        topic_name = name_;
+        subscriber_options = rcl_subscription_get_default_options();
+        subscriber_options.qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    }
+
+    virtual ~uROSSubscriberBase_() {}
+
+    const rcl_node_t &node_handle;
+
+    rcl_subscription_t subscriber_handle{0};
+    rcl_subscription_options_t subscriber_options;
+    const rosidl_message_type_support_t *type_support;
+    const char *topic_name;
+};
+
+template <typename ROSTopicMsgT>
+class uROSSubscriber : public uROSSubscriberBase_ {
+    typedef std::function<void(const ROSTopicMsgT &)> callbackT;
+
+   public:
+    uROSSubscriber(const char *name_, const rcl_node_t &nh_, const rosidl_message_type_support_t *type_support_, callbackT cb_) : uROSSubscriberBase_(name_, nh_, type_support_),
+                                                                                                                                  cb(cb_) {
+    }
+
+    uint32_t receive() {
+        uint32_t rc = 0;
+        ROSTopicMsgT msg;
+        rc = rcl_take(&subscriber_handle, &msg, NULL, NULL);
+
+        if (rc == RCL_RET_OK) {
+            //TODO: does rcl_take only return rc = RCL_RET_OK if there was a new message? Verify by priting count
+            cb(msg);
+        }
+        return rc;
+    }
+
+   private:
+    ROSTopicMsgT msg;
+    callbackT cb;
 };
 
 #endif  // _UROSTOPIC_HPP_

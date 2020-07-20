@@ -4,37 +4,29 @@
 #include "MachineRFX.hpp"
 #include "app_starter.hpp"
 #include "main.h"
-#include "uROS/uROSNode.hpp"
-#include "uROS/uROSTopic.hpp"
 
 extern "C" {
-#include <rcl/error_handling.h>
-#include <rcl/rcl.h>
-#include <rcl_action/rcl_action.h>
-#include <rmw_microxrcedds_c/config.h>
-#include <rmw_uros/options.h>
-#include <ucdr/microcdr.h>
-#include <unistd.h>
-#include <uxr/client/client.h>
-
 #include "allocators.h"
-#include "rosidl_generator_c/string_functions.h"
 }
 
-#include <std_msgs/msg/header.h>
-
-#include "cranesupervisor/msg/num.h"
+#include "cranesupervisor/msg/actuator_cmd.h"
+#include "cranesupervisor/msg/actuator_state.h"
+#include "uROS/uROSNode.hpp"
+#include "uROS/uROSTopic.hpp"
 
 #define STRING_BUFFER_LEN 100
 
 using namespace MachineRFX;
-
+using namespace std::placeholders; 
 class ROSManager : public MRXThread {
    public:
+
     ROSManager()
         : MRXThread("ros_manager", 3000, MRXPriority_n::Normal, 1000),
           ros_node("crane_supervisor", 0x10),
-          topic_num_pub("/CraneSupervisor/Num", ros_node.node_handle, ROSIDL_GET_MSG_TYPE_SUPPORT(cranesupervisor, msg, Num)) {
+          actuatorState_pub("/CraneSupervisor/ActuatorState", ros_node.node_handle, ROSIDL_GET_MSG_TYPE_SUPPORT(cranesupervisor, msg, ActuatorState)),
+          actuatorCmd_sub("/CraneSupervisor/ActuatorCmd", ros_node.node_handle, ROSIDL_GET_MSG_TYPE_SUPPORT(cranesupervisor, msg, ActuatorCmd),
+                          std::bind(&ROSManager::on_actuatorCmd_receive, this, _1)) {
     }
 
     virtual ~ROSManager() {
@@ -43,17 +35,18 @@ class ROSManager : public MRXThread {
    protected:
     virtual void run() {
         rcl_ret_t rc;
-        //TODO: add guards on rc and perhaps a recycle goto statement. Maybe an assert macro?
         while (1) {
             rc = ros_node.connect();
-            rc = topic_num_pub.initialize();
-            
-            numMsg.num = 0;
+            rc = actuatorState_pub.initialize();
+            rc = actuatorCmd_sub.initialize();
+
+            actuatorStateMsg.control_mode = 0;
             bool reconnect = false;
 
             while (!reconnect) {
-                numMsg.num++;
-                topic_num_pub.publish(numMsg);
+                actuatorStateMsg.control_mode++;
+                actuatorState_pub.publish(actuatorStateMsg);
+                actuatorCmd_sub.receive();
                 thread_lap();
             }
         }
@@ -66,19 +59,22 @@ class ROSManager : public MRXThread {
     void on_int_service_response_receive();
 
     /* external receives */
-    void on_ext_set_parameters_receive();
+    void on_actuatorCmd_receive(const cranesupervisor__msg__ActuatorCmd &msg) {
+        printf("Callback\n");
+    }
     void on_ext_action_receive();
     void on_ext_service_receive();
-
 
     /* Node */
     uROSNode ros_node;
 
     /* Pubs */
-    uROSTopicPublisher<cranesupervisor__msg__Num> topic_num_pub;
-    cranesupervisor__msg__Num numMsg;
+    uROSPublisher<cranesupervisor__msg__ActuatorState> actuatorState_pub;
+    cranesupervisor__msg__ActuatorState actuatorStateMsg;
 
     /* Subs */
+    uROSSubscriber<cranesupervisor__msg__ActuatorCmd> actuatorCmd_sub;
+    cranesupervisor__msg__ActuatorCmd actuatorCmdMsg;
 };
 
 void start_ros_manager(void) {
