@@ -1,0 +1,122 @@
+
+#include <cstdio>
+
+#include "MachineRFX.hpp"
+#include "app_starter.hpp"
+#include "main.h"
+
+extern "C" {
+#include "allocators.h"
+#include "cranesupervisor/msg/actuator_cmd.h"
+#include "cranesupervisor/msg/actuator_state.h"
+#include "rosidl_generator_c/string_functions.h"
+}
+
+#include "uROS/uROSNode.hpp"
+#include "uROS/uROSTopic.hpp"
+
+#define STRING_BUFFER_LEN 100
+
+using namespace MachineRFX;
+using namespace std::placeholders;
+class ROSManager : public MRXThread {
+   public:
+    ROSManager()
+        : MRXThread("ros_manager", 3000, MRXPriority_n::Normal, 1000),
+          ros_node("crane_supervisor", 0x10) {
+        //   ping_pub("/microROS/ping", ros_node.node_handle, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Header)),
+        //   pong_sub("/microROS/pong", ros_node.node_handle, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Header),
+        //            std::bind(&ROSManager::on_ping_receive, this, _1)) {
+    }
+
+    virtual ~ROSManager() {
+    }
+
+   protected:
+    virtual void run() {
+        rcl_ret_t rc;
+        while (1) {
+            rc = ros_node.connect();
+            // rc = ping_pub.initialize();
+            // rc = pong_sub.initialize();
+
+            rcl_publisher_options_t ping_publisher_ops = rcl_publisher_get_default_options();
+            rcl_publisher_t ping_publisher = rcl_get_zero_initialized_publisher();
+            rcl_publisher_init(&ping_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Header), "/microROS/ping", &ping_publisher_ops);
+
+            std_msgs__msg__Header msg;
+            char msg_buffer[STRING_BUFFER_LEN];
+            msg.frame_id.data = msg_buffer;
+            msg.frame_id.capacity = STRING_BUFFER_LEN;
+
+            int device_id = rand();
+            int seq_no;
+
+            bool reconnect = false;
+            int seq_no;
+
+            char msg_buffer[100];
+            pingMsg.frame_id.data = msg_buffer;
+            pingMsg.frame_id.capacity = 100;
+
+            while (!reconnect) {
+                seq_no = rand();
+                sprintf(pingMsg.frame_id.data, "%d_%d", seq_no, 0x1);
+                pingMsg.frame_id.size = strlen(pingMsg.frame_id.data);
+                // ping_pub.publish(pingMsg);
+
+                // pong_sub.receive();
+
+                thread_lap();
+            }
+        }
+    }
+
+   private:
+    /* internal receives */
+    void on_int_topic_receive();
+    void on_int_action_response_receive();
+    void on_int_service_response_receive();
+
+    /* external receives */
+    void on_ping_receive(const std_msgs__msg__Header &msg) {
+        printf("Callback\n");
+    }
+    // void on_actuatorCmd_receive(const cranesupervisor__msg__ActuatorCmd &msg) {
+    //     printf("Callback\n");
+    // }
+    // void on_actuatorCmd_receive(const cranesupervisor__msg__ActuatorCmd &msg) {
+    //     printf("Callback\n");
+    // }
+    void on_ext_action_receive();
+    void on_ext_service_receive();
+
+    /* Node */
+    uROSNode ros_node;
+
+    /* Pubs */
+    uROSPublisher<std_msgs__msg__Header> ping_pub;
+    std_msgs__msg__Header pingMsg;
+
+    /* Subs */
+    // uROSSubscriber<cranesupervisor__msg__ActuatorCmd> actuatorCmd_sub;
+    // cranesupervisor__msg__ActuatorCmd actuatorCmdMsg;
+    uROSSubscriber<std_msgs__msg__Header> pong_sub;
+    std_msgs__msg__Header pongMsg;
+};
+
+void start_ros_manager(void) {
+    //TODO: take this back to main.c, it is platform dependent.
+    rcl_allocator_t freeRTOS_allocator = rcutils_get_zero_initialized_allocator();
+    freeRTOS_allocator.allocate = __freertos_allocate;
+    freeRTOS_allocator.deallocate = __freertos_deallocate;
+    freeRTOS_allocator.reallocate = __freertos_reallocate;
+    freeRTOS_allocator.zero_allocate = __freertos_zero_allocate;
+
+    if (!rcutils_set_default_allocator(&freeRTOS_allocator)) {
+        printf("Error on default allocators (line %d)\n", __LINE__);
+    }
+
+    ROSManager *ptr = new ROSManager();
+    ptr->start();
+}

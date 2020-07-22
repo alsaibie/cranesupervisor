@@ -35,6 +35,7 @@ int app_starter(int argc, char **argv) {
     /* Start Threads */
     /* Tasks with static allocation first */
     start_ros_manager();
+    // start_rclc_example();
     // start_pc_comms_manager();
     // start_master_manager();
     // start_safety_manager();

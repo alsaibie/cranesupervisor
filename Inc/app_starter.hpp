@@ -55,7 +55,7 @@ static inline uint64_t GetTickMicroseconds(){
 /* Declare Global Thread Start C-Compatible Functions - for portability */
 
 void start_ros_manager(void);
-
+int start_rclc_example(void);
 // void start_master_manager(void);
 // const RTOSPriority_T master_m_priority = rtosPriorityNormal;
 

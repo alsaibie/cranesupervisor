@@ -97,6 +97,7 @@ CPP_SOURCES = \
 $(UROS_APP_FOLDER)/app_starter.cpp \
 $(UROS_APP_FOLDER)/actuator_manager.cpp \
 $(UROS_APP_FOLDER)/actuators/ODrive/ODriveInterface.cpp \
+$(UROS_APP_FOLDER)/ros_rclc_example.cpp \
 $(UROS_APP_FOLDER)/ros_manager.cpp \
 Src/Device/UART.cpp \
 Src/cpp_allocators.cpp
