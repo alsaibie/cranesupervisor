@@ -26,6 +26,7 @@ public:
     actuatorCmd_sub("ActuatorCmd", ros_node,
       ROSIDL_GET_MSG_TYPE_SUPPORT(cranesupervisor, msg,
       ActuatorCmd))
+
   {
   }
   virtual ~ROSManager()
@@ -52,10 +53,12 @@ protected:
       bool reconnect = false;
 
       while (!reconnect) {
+        
         actuatorStateMsg.control_mode = actuatorCmdMsg.control_mode;
+        
         actuatorState_pub.publish(actuatorStateMsg);
+
         ros_node.spin_once(t_sampling_ms);
-        // thread_lap();
       }
     }
   }
